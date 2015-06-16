@@ -42,7 +42,7 @@
 #include "gtkblist.h"
 
 gboolean HAVE_UNREAD = FALSE;
-guint LED_TIMER = NULL;
+guint LED_TIMER = 0;
 
 void led_set(gboolean state) {
 	const char *filename=purple_prefs_get_string(
@@ -74,13 +74,14 @@ gboolean toggle_led(gpointer user_data){
 	} else {
 		led_set(FALSE);
 		purple_timeout_remove(LED_TIMER);
+		LED_TIMER = 0;
 		return FALSE;
 	}
 }
 
 void state_set(gboolean state) {
 	HAVE_UNREAD = state;
-	if(purple_prefs_get_bool("/plugins/gtk/gtk-simom-lednot/should_blink")){
+	if(purple_prefs_get_bool("/plugins/gtk/gtk-simom-lednot/should_blink") && !LED_TIMER){
 		LED_TIMER = purple_timeout_add(666, toggle_led, NULL);
 		toggle_led(NULL);
 	} else {
