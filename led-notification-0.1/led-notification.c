@@ -41,6 +41,9 @@
 #include "gtkplugin.h"
 #include "gtkblist.h"
 
+gboolean HAVE_UNREAD = FALSE;
+guint LED_TIMER = NULL;
+
 void led_set(gboolean state) {
 	const char *filename=purple_prefs_get_string(
 	                                 "/plugins/gtk/gtk-simom-lednot/filename");
@@ -60,6 +63,29 @@ void led_set(gboolean state) {
 	}
 
 	fclose(file);
+}
+
+gboolean toggle_led(gpointer user_data){
+	static gboolean led_state = TRUE;
+	if(HAVE_UNREAD){
+		led_set(led_state);
+		led_state ^= TRUE;
+		return TRUE;
+	} else {
+		led_set(FALSE);
+		purple_timeout_remove(LED_TIMER);
+		return FALSE;
+	}
+}
+
+void state_set(gboolean state) {
+	HAVE_UNREAD = state;
+	if(purple_prefs_get_bool("/plugins/gtk/gtk-simom-lednot/should_blink")){
+		LED_TIMER = purple_timeout_add(666, toggle_led, NULL);
+		toggle_led(NULL);
+	} else {
+		led_set(state);
+	}
 }
 
 GList *get_pending_list(guint max) {
@@ -113,9 +139,9 @@ static void lednot_conversation_updated(PurpleConversation *conv,
 	list=get_pending_list(1);
 
 	if(list==NULL) {
-		led_set(FALSE);
+		state_set(FALSE);
 	} else if(list!=NULL) {
-		led_set(TRUE);
+		state_set(TRUE);
 	}
 	g_list_free(list);
 }
@@ -153,12 +179,14 @@ static GtkWidget *plugin_config_frame(PurplePlugin *plugin) {
 	                        NULL);
 	gtk_size_group_add_widget(sg, dd);
 
-	ent=pidgin_prefs_labeled_entry(vbox2,"File to control led:",
+	ent=pidgin_prefs_labeled_entry(vbox2,"File to control LED:",
 	                              "/plugins/gtk/gtk-simom-lednot/filename",sg);
-	ent=pidgin_prefs_labeled_entry(vbox2,"String to turn led on:",
+	ent=pidgin_prefs_labeled_entry(vbox2,"String to turn LED on:",
 		"/plugins/gtk/gtk-simom-lednot/led_on",sg);
-	ent=pidgin_prefs_labeled_entry(vbox2,"String to turn led off:",
+	ent=pidgin_prefs_labeled_entry(vbox2,"String to turn LED off:",
 		"/plugins/gtk/gtk-simom-lednot/led_off",sg);
+	ent=pidgin_prefs_checkbox("Blink LED",
+		"/plugins/gtk/gtk-simom-lednot/should_blink",vbox2);
 
 	gtk_widget_show_all(frame);
 	return frame;
@@ -172,6 +200,7 @@ static void init_plugin(PurplePlugin *plugin) {
 	                        "/proc/acpi/asus/mled");
 	purple_prefs_add_string("/plugins/gtk/gtk-simom-lednot/led_on", "1");
 	purple_prefs_add_string("/plugins/gtk/gtk-simom-lednot/led_off", "0");
+	purple_prefs_add_bool("/plugins/gtk/gtk-simom-lednot/should_blink", FALSE);
 }
 
 static gboolean plugin_load(PurplePlugin *plugin) {
